@@ -1,4 +1,4 @@
-# ZEEXswapContractV1
+# ZEEXswapContractV2
 
 Submitted for verification at BscScan.com on 2021-10-XX
 
