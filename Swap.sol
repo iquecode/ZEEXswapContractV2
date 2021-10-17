@@ -1,4 +1,4 @@
-// Submitted for verification at BscScan.com on 2021-10-15
+// Submitted for verification at BscScan.com on 2021-10-XX
 
 /*
 Public contract (Version 1.0) for secure swap between ZEEX (token 0xb9c21a1A716Ee781B0Ab282F3AEdDB3382d7aAdc) 
@@ -75,31 +75,7 @@ contract Swap is Ownable{
         return true;
     }
 
-    function signPartner() external {
-        require(_isPartner[wallet] == false, "Already sign");
-        _putPartner(msg.sender, -1);
-    }
-
-    function putPartner(address wallet, uint8 rebate) external onlyOwner returns (bool) {
-        return _putPartner(wallet, rebate);
-    }
-
-    function setPartner(uint256 id, uint8 rebate) external onlyOwner {
-        require(_idPartner[id], "ID not found");
-        _idPartner(id).rebate = rebate;
-    }
-
-    function setRebateON(bool rebatesON) external onlyOwner {
-        _rebateON = rebateON;
-    }
-    function getRebateON() external  view returns (bool) {
-        return (_rebateON);
-    }
-
-    function getPartner(uint256 id) external view returns (address, uint8) {
-        return (_idPartner(id).wallet, _idPartner(id).rebate);
-    }
-
+    
     /**
      * Returns the latest price BNB/USD
      */
@@ -190,5 +166,31 @@ contract Swap is Ownable{
     function getParams() external view returns (address, uint256, int, uint256, uint256) {
         return (_ownerZEEX, _valueZEEX, _percentPriceBNB, _minimalBNBAmount, _minimalUSDTAmount); 
     }
+
+    function signPartner() external {
+        require(_isPartner[wallet] == false, "Already sign");
+        _putPartner(msg.sender, -1);
+    }
+
+    function putPartner(address wallet, uint8 rebate) external onlyOwner returns (bool) {
+        return _putPartner(wallet, rebate);
+    }
+
+    function setPartner(uint256 id, uint8 rebate) external onlyOwner {
+        require(_idPartner[id], "ID not found");
+        _idPartner(id).rebate = rebate;
+    }
+
+    function setRebateON(bool rebatesON) external onlyOwner {
+        _rebateON = rebateON;
+    }
+    function getRebateON() external  view returns (bool) {
+        return (_rebateON);
+    }
+
+    function getPartner(uint256 id) external view returns (address, uint8) {
+        return (_idPartner(id).wallet, _idPartner(id).rebate);
+    }
+
 
 }
