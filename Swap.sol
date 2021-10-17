@@ -37,10 +37,10 @@ contract Swap is Ownable{
 
     uint256 lastIdPArtner = 10100;
     uint8 _standartRebate = 40;
-    mapping (address => bool) internal _isPartner;
+    mapping (address => uint256) internal _isPartner;
     struct Partner {
         address wallet;
-        uint8 rebate;
+        int8 rebate;
     }
     mapping (uint256 => Partner) internal _idPartner;
 
@@ -62,13 +62,13 @@ contract Swap is Ownable{
     }
 
 
-    function _putPartner(address wallet, uint256 rebate) internal returns (bool) {
-        if (_isPartner[wallet]) {
+    function _putPartner(address wallet, int8 rebate) internal returns (bool) {
+        if (_isPartner[wallet] != 0) {
             return false;
         }
         lastIdPArtner += 1;
-        _isPartner[wallet] = true;
-        Partner _partner;
+        _isPartner[wallet] = lastIdPArtner;
+        Partner memory _partner;
         _partner.wallet = wallet; 
         _partner.rebate = rebate;  //-1 para rebate padrão  0 para não ter rebates 
         _idPartner[lastIdPArtner] = _partner;
@@ -90,9 +90,9 @@ contract Swap is Ownable{
         return (price * _percentPriceBNB) / 100;
     }
 
-    function _trySendRebate(uint256 id, uint256 amount) {
-        if (_idPartner[id] && _rebateON) {
-            _safeTransferFrom(_ZEEX, _ownerZEEX, _idPartner[id].wallet, _amountZEEX);
+    function _trySendRebate(uint256 id, uint256 amount) internal {
+        if (_idPartner[id].rebate == 0 && _rebateON) {
+            _safeTransferFrom(_ZEEX, _ownerZEEX, _idPartner[id].wallet, amount);
         }
     }
 
@@ -168,28 +168,28 @@ contract Swap is Ownable{
     }
 
     function signPartner() external {
-        require(_isPartner[wallet] == false, "Already sign");
+        require(_isPartner[msg.sender] == 0, "Already sign");
         _putPartner(msg.sender, -1);
     }
 
-    function putPartner(address wallet, uint8 rebate) external onlyOwner returns (bool) {
+    function putPartner(address wallet, int8 rebate) external onlyOwner returns (bool) {
         return _putPartner(wallet, rebate);
     }
 
-    function setPartner(uint256 id, uint8 rebate) external onlyOwner {
-        require(_idPartner[id], "ID not found");
-        _idPartner(id).rebate = rebate;
+    function setPartner(uint256 id, int8 rebate) external onlyOwner {
+        require(_idPartner[id].wallet != address(0), "ID not found");
+        _idPartner[id].rebate = rebate;
     }
 
-    function setRebateON(bool rebatesON) external onlyOwner {
+    function setRebateON(bool rebateON) external onlyOwner {
         _rebateON = rebateON;
     }
     function getRebateON() external  view returns (bool) {
         return (_rebateON);
     }
 
-    function getPartner(uint256 id) external view returns (address, uint8) {
-        return (_idPartner(id).wallet, _idPartner(id).rebate);
+    function getPartner(uint256 id) external view returns (address, int8) {
+        return (_idPartner[id].wallet, _idPartner[id].rebate);
     }
 
 
