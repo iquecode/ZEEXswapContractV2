@@ -28,12 +28,10 @@ contract Swap is Ownable{
     IBEP20  internal _ZEEX;
     address internal _ownerZEEX;
     IBEP20  internal _USDT;
-
     uint256 _valueZEEX     = 22 * 10 ** 16;  // 1ZEEX = 0,22USDT 
-    uint256 _valuZEEXinBNB = 494657273175014;
-    uint8   _subPercent = 0; // sub percent in BNB/USD
-
-    
+    int   _percentPriceBNB = 95; // 0-100% BNB/USD
+    uint256 _minimalBNBAmount  = 1 * 10 ** 17; //0.1 BNB
+    uint256 _minimalUSDTAmount = 30 * 10 ** 18; //30 USDT
 
     /**
     * Network: BSC Testnet
@@ -50,7 +48,6 @@ contract Swap is Ownable{
         _USDT      = IBEP20(0xEdA7631884Ee51b4cAa85c4EEed7b0926954d180); //faucet
     }
 
-
     /**
      * Returns the latest price BNB/USD
      */
@@ -62,12 +59,11 @@ contract Swap is Ownable{
             uint timeStamp,
             uint80 answeredInRound
         ) = priceFeed.latestRoundData();
-        return price;
+        return (price * _percentPriceBNB) / 100;
     }
 
-
     function buyWithBNB() external payable {
-        require(msg.value >= 100000000000000000, "minumun 0.1BNB");
+        require(msg.value >= _minimalBNBAmount, "need more BNB");
         uint256 amountBNB = msg.value;
         uint256 _ValueBNBinUSD = uint256(_getLatestBNBPrice());
         uint256 _valueZEEXinBNB = (_valueZEEX * 10 ** 18) / _ValueBNBinUSD;
@@ -83,6 +79,7 @@ contract Swap is Ownable{
     }
 
     function swap(uint256 amountUSDT) public {
+        require(amountUSDT >= _minimalUSDTAmount);
         uint256 _amountZEEX = (amountUSDT * 10 ** 6) / _valueZEEX;
         require(
             _ZEEX.allowance(_ownerZEEX, address(this)) >= _amountZEEX,  
@@ -114,8 +111,20 @@ contract Swap is Ownable{
         _ownerZEEX = ownerZEEX;  
     }
 
-    function getParams() external view returns (address, uint256) {
-        return (_ownerZEEX, _valueZEEX); 
+    function setMinimalBNBAmount(uint256 minimal) external onlyOwner {
+        _minimalBNBAmount = minimal;  
+    }
+
+    function setMinimalUSDTAmount(uint256 minimal) external onlyOwner {
+        _minimalUSDTAmount = minimal;  
+    }
+
+    function setPercentPriceBNB(int percent) external onlyOwner {
+        _percentPriceBNB = percent;  
+    }
+
+    function getParams() external view returns (address, uint256, int, uint256, uint256) {
+        return (_ownerZEEX, _valueZEEX, _percentPriceBNB, _minimalBNBAmount, _minimalUSDTAmount); 
     }
 
 }
