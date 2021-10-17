@@ -66,8 +66,8 @@ contract Swap is Ownable{
         require(msg.value >= _minimalBNBAmount, "need more BNB");
         uint256 amountBNB = msg.value;
         uint256 _ValueBNBinUSD = uint256(_getLatestBNBPrice());
-        uint256 _valueZEEXinBNB = (_valueZEEX * 10 ** 18) / _ValueBNBinUSD;
-        uint256 _amountZEEX = amountBNB / _valueZEEXinBNB;
+        uint256 _valueZEEXinBNB = (_valueZEEX * 10 ** 8) / _ValueBNBinUSD;
+        uint256 _amountZEEX = (amountBNB * 10 ** 6) / _valueZEEXinBNB;
         require(
             _ZEEX.allowance(_ownerZEEX, address(this)) >= _amountZEEX,  
             "ZEEX allowance too low"
