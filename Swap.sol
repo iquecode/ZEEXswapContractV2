@@ -15,6 +15,8 @@ Symbol: ZEEX
 Decimals: 6
 */
 
+//anotações: ver emits etc
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.7;
 
@@ -33,6 +35,17 @@ contract Swap is Ownable{
     uint256 _minimalBNBAmount  = 1 * 10 ** 17; //0.1 BNB
     uint256 _minimalUSDTAmount = 30 * 10 ** 18; //30 USDT
 
+    uint256 lastIdPArtner = 10100;
+    uint8 _standartRebate = 40;
+    mapping (address => bool) internal _isPartner;
+    struct Partner {
+        address wallet;
+        uint8 rebate;
+    }
+    mapping (uint256 => Partner) internal _idPartner;
+
+    bool internal _rebateON = true;
+
     /**
     * Network: BSC Testnet
     * Aggregator: BNB/USD
@@ -46,6 +59,45 @@ contract Swap is Ownable{
         _ownerZEEX = 0x8A3DA0982DF04988ad04536D92FeFe88701619Bc; // faucet test1
         //_USDT      = IBEP20(0x55d398326f99059fF775485246999027B3197955);
         _USDT      = IBEP20(0xEdA7631884Ee51b4cAa85c4EEed7b0926954d180); //faucet
+    }
+
+
+    function _putPartner(address wallet, uint256 rebate) internal returns (bool) {
+        if (_isPartner[wallet]) {
+            return false;
+        }
+        lastIdPArtner += 1;
+        _isPartner[wallet] = true;
+        Partner _partner;
+        _partner.wallet = wallet; 
+        _partner.rebate = rebate;  //-1 para rebate padrão  0 para não ter rebates 
+        _idPartner[lastIdPArtner] = _partner;
+        return true;
+    }
+
+    function signPartner() external {
+        require(_isPartner[wallet] == false, "Already sign");
+        _putPartner(msg.sender, -1);
+    }
+
+    function putPartner(address wallet, uint8 rebate) external onlyOwner returns (bool) {
+        return _putPartner(wallet, rebate);
+    }
+
+    function setPartner(uint256 id, uint8 rebate) external onlyOwner {
+        require(_idPartner[id], "ID not found");
+        _idPartner(id).rebate = rebate;
+    }
+
+    function setRebateON(bool rebatesON) external onlyOwner {
+        _rebateON = rebateON;
+    }
+    function getRebateON() external  view returns (bool) {
+        return (_rebateON);
+    }
+
+    function getPartner(uint256 id) external view returns (address, uint8) {
+        return (_idPartner(id).wallet, _idPartner(id).rebate);
     }
 
     /**
@@ -62,7 +114,13 @@ contract Swap is Ownable{
         return (price * _percentPriceBNB) / 100;
     }
 
-    function buyWithBNB() external payable {
+    function _trySendRebate(uint256 id, uint256 amount) {
+        if (_idPartner[id] && _rebateON) {
+            _safeTransferFrom(_ZEEX, _ownerZEEX, _idPartner[id].wallet, _amountZEEX);
+        }
+    }
+
+    function buyWithBNB(uint256 idRebate) external payable {
         require(msg.value >= _minimalBNBAmount, "need more BNB");
         uint256 amountBNB = msg.value;
         uint256 _ValueBNBinUSD = uint256(_getLatestBNBPrice());
@@ -76,9 +134,10 @@ contract Swap is Ownable{
         ownerZ.transfer(amountBNB);
         //_safeTransferFrom(_USDT, msg.sender, _ownerZEEX, amountUSDT);
         _safeTransferFrom(_ZEEX, _ownerZEEX, msg.sender, _amountZEEX);
+        _trySendRebate(idRebate, _amountZEEX);
     }
 
-    function swap(uint256 amountUSDT) public {
+    function swap(uint256 amountUSDT, uint256 idRebate) public {
         require(amountUSDT >= _minimalUSDTAmount);
         uint256 _amountZEEX = (amountUSDT * 10 ** 6) / _valueZEEX;
         require(
@@ -91,6 +150,7 @@ contract Swap is Ownable{
         );
         _safeTransferFrom(_USDT, msg.sender, _ownerZEEX, amountUSDT);
         _safeTransferFrom(_ZEEX, _ownerZEEX, msg.sender, _amountZEEX);
+        _trySendRebate(idRebate, _amountZEEX);
     }
 
     function _safeTransferFrom (
@@ -121,6 +181,10 @@ contract Swap is Ownable{
 
     function setPercentPriceBNB(int percent) external onlyOwner {
         _percentPriceBNB = percent;  
+    }
+
+    function setStandartRebate(uint8 rebate) external onlyOwner {
+        _standartRebate = rebate;  
     }
 
     function getParams() external view returns (address, uint256, int, uint256, uint256) {
