@@ -35,16 +35,52 @@ contract Swap is Ownable{
     uint256 _minimalBNBAmount  = 1 * 10 ** 17; //0.1 BNB
     uint256 _minimalUSDTAmount = 30 * 10 ** 18; //30 USDT
 
-    uint256 lastIdPArtner = 10100;
+    uint256 _lastIdPartner = 10100;
     uint8 _standartRebate = 40;
+    uint8 _standartRebateTransfer = 0;
     mapping (address => uint256) internal _isPartner;
     struct Partner {
         address wallet;
-        int8 rebate;
+        uint8 rebate;
+        uint8 rebateTransfer;
+        bool customRebate;
     }
     mapping (uint256 => Partner) internal _idPartner;
 
+    struct Sale {
+        address buyer;
+        uint256 amoutZeex;
+        uint8 anoterToken;
+        uint256 amountAnoter;
+        uint256 idPartner;
+        address walletPartner;
+        uint256 rebatePartner;
+        uint256 rebateBuyer;
+    }
+    //mapping (uint256 => Sale) internal _idSale;
+    //uint256 _lastIdSale = 0;
+
+    struct Rebate {
+        uint256 amoutPartner;
+        uint256 amountBuyer;
+    }
+    
     bool internal _rebateON = true;
+
+
+    //debug - test
+    IBEP20  public ZEEXTest;
+    address public ownerZEEXTeste;
+    address public partnerWalletTest;
+    uint256 public amoutPartnerTeste;
+    address public buyeTest;
+    uint256 public amoutBuyerTeste;
+
+    //event setSale (uint256 id, address buyer, uint256 amoutZeex, uint8 anoterToken, uint256 amountAnoter, uint256 partnerId, address walletPartner, uint256 rebatePartner, uint256 rebateBuyer, uint256 moment);
+    event setSale (Sale sale);
+    
+    //event setNewPartner (uint256 id, address wallet, uint8 rebate, uint8 rebateTransfer, bool customRebate);
+    //event setUpdatePartner (uint256 id, address wallet, uint8 rebate, uint8 rebateTransfer, bool customRebate);
 
     /**
     * Network: BSC Testnet
@@ -62,16 +98,18 @@ contract Swap is Ownable{
     }
 
 
-    function _putPartner(address wallet, int8 rebate) internal returns (bool) {
+    function _putPartner(address wallet, uint8 rebate, uint8 rebateTransfer, bool customRebate) internal returns (bool) {
         if (_isPartner[wallet] != 0) {
             return false;
         }
-        lastIdPArtner += 1;
-        _isPartner[wallet] = lastIdPArtner;
+        _lastIdPartner += 1;
+        _isPartner[wallet] = _lastIdPartner;
         Partner memory _partner;
         _partner.wallet = wallet; 
-        _partner.rebate = rebate;  //-1 para rebate padrão  0 para não ter rebates 
-        _idPartner[lastIdPArtner] = _partner;
+        _partner.rebate = rebate;  //0 para não ter rebates
+        _partner.rebateTransfer = rebateTransfer;
+        _partner.customRebate = customRebate;
+        _idPartner[_lastIdPartner] = _partner;
         return true;
     }
 
@@ -90,10 +128,43 @@ contract Swap is Ownable{
         return (price * _percentPriceBNB) / 100;
     }
 
-    function _trySendRebate(uint256 id, uint256 amount) internal {
-        if (_idPartner[id].rebate == 0 && _rebateON) {
-            _safeTransferFrom(_ZEEX, _ownerZEEX, _idPartner[id].wallet, amount);
+    function _trySendRebate(uint256 id, uint256 amount, address buyer) internal returns(Rebate memory) {
+       
+       
+        Rebate memory rebate;
+        rebate.amoutPartner = 0; 
+        rebate.amountBuyer = 0;
+        if (_rebateON == false) {
+            return rebate;
+        }   
+
+        if(_idPartner[id].wallet == address(0)) {
+            return rebate;
         }
+
+        if (_idPartner[id].customRebate == false) {
+            rebate.amoutPartner = (amount * _standartRebate) / 100;
+            rebate.amountBuyer = (amount * _standartRebateTransfer) / 100; 
+        } else {
+            rebate.amoutPartner  = (amount * _idPartner[id].rebate) / 100;
+            rebate.amountBuyer   = (amount * _idPartner[id].rebateTransfer) / 100; 
+        }
+        if(rebate.amoutPartner > 0) {
+            _safeTransferFrom(_ZEEX, _ownerZEEX, _idPartner[id].wallet, rebate.amoutPartner);
+        }
+        if(rebate.amountBuyer > 0) {
+            _safeTransferFrom(_ZEEX, _ownerZEEX, buyer, rebate.amountBuyer);
+        }
+
+        
+        ZEEXTest = _ZEEX;
+        ownerZEEXTeste = _ownerZEEX;
+        partnerWalletTest = _idPartner[id].wallet;
+        amoutPartnerTeste = rebate.amoutPartner;
+        buyeTest = buyer;
+        amoutBuyerTeste = rebate.amountBuyer;
+
+        return rebate;
     }
 
     function buyWithBNB(uint256 idRebate) external payable {
@@ -110,7 +181,18 @@ contract Swap is Ownable{
         ownerZ.transfer(amountBNB);
         //_safeTransferFrom(_USDT, msg.sender, _ownerZEEX, amountUSDT);
         _safeTransferFrom(_ZEEX, _ownerZEEX, msg.sender, _amountZEEX);
-        _trySendRebate(idRebate, _amountZEEX);
+        Rebate memory rebate = _trySendRebate(idRebate, _amountZEEX, msg.sender);
+        //_lastIdSale += 1;
+        Sale memory sale;
+        sale.buyer = msg.sender;
+        sale.amoutZeex = _amountZEEX;
+        sale.anoterToken = 2; //1USDT - 2BNB
+        sale.amountAnoter = msg.value;
+        sale.idPartner = idRebate;
+        sale.walletPartner = _idPartner[idRebate].wallet;
+        sale.rebateBuyer = rebate.amountBuyer;
+        sale.rebatePartner = rebate.amoutPartner;  
+        emit setSale(sale);
     }
 
     function swap(uint256 amountUSDT, uint256 idRebate) public {
@@ -126,7 +208,17 @@ contract Swap is Ownable{
         );
         _safeTransferFrom(_USDT, msg.sender, _ownerZEEX, amountUSDT);
         _safeTransferFrom(_ZEEX, _ownerZEEX, msg.sender, _amountZEEX);
-        _trySendRebate(idRebate, _amountZEEX);
+        Rebate memory rebate = _trySendRebate(idRebate, _amountZEEX, msg.sender);
+        Sale memory sale;
+        sale.buyer = msg.sender;
+        sale.amoutZeex = _amountZEEX;
+        sale.anoterToken = 1; //1USDT - 2BNB
+        sale.amountAnoter = amountUSDT;
+        sale.idPartner = idRebate;
+        sale.walletPartner = _idPartner[idRebate].wallet;
+        sale.rebateBuyer = rebate.amountBuyer;
+        sale.rebatePartner = rebate.amoutPartner;  
+        emit setSale(sale);
     }
 
     function _safeTransferFrom (
@@ -159,37 +251,46 @@ contract Swap is Ownable{
         _percentPriceBNB = percent;  
     }
 
-    function setStandartRebate(uint8 rebate) external onlyOwner {
+    function setStandartRebate(uint8 rebate, uint8 rebateTransfer) external onlyOwner {
         _standartRebate = rebate;  
+        _standartRebateTransfer = rebateTransfer;  
     }
 
-    function getParams() external view returns (address, uint256, int, uint256, uint256) {
+    function getParamsPrice() external view returns (address, uint256, int, uint256, uint256) {
         return (_ownerZEEX, _valueZEEX, _percentPriceBNB, _minimalBNBAmount, _minimalUSDTAmount); 
     }
 
     function signPartner() external {
         require(_isPartner[msg.sender] == 0, "Already sign");
-        _putPartner(msg.sender, -1);
+        _putPartner(msg.sender, 0, 0, false);
     }
 
-    function putPartner(address wallet, int8 rebate) external onlyOwner returns (bool) {
-        return _putPartner(wallet, rebate);
+    function putPartner(address wallet, uint8 rebate, uint8 rebateTransfer, bool customRebate) external onlyOwner returns (bool) {
+        return _putPartner(wallet, rebate, rebateTransfer, customRebate);
     }
 
-    function setPartner(uint256 id, int8 rebate) external onlyOwner {
+    function setPartner(uint256 id, uint8 rebate, uint8 rebateTransfer, bool customRebate) external onlyOwner {
         require(_idPartner[id].wallet != address(0), "ID not found");
         _idPartner[id].rebate = rebate;
+        _idPartner[id].rebateTransfer = rebateTransfer;
+        _idPartner[id].customRebate = customRebate;
     }
 
     function setRebateON(bool rebateON) external onlyOwner {
         _rebateON = rebateON;
     }
-    function getRebateON() external  view returns (bool) {
+
+    function getRebateON() external view returns (bool) {
         return (_rebateON);
     }
 
-    function getPartner(uint256 id) external view returns (address, int8) {
-        return (_idPartner[id].wallet, _idPartner[id].rebate);
+    function getPartner(uint256 id) external view returns (address, uint8, uint8, bool) {
+        return (_idPartner[id].wallet, _idPartner[id].rebate, _idPartner[id].rebateTransfer, _idPartner[id].customRebate);
+    }
+
+    function getPartnerWithWallet(address wallet) external view returns (uint256, uint8, uint8, bool) {
+        uint256 id = _isPartner[wallet]; 
+        return (id, _idPartner[id].rebate, _idPartner[id].rebateTransfer, _idPartner[id].customRebate);
     }
 
 
