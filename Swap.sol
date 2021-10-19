@@ -292,11 +292,11 @@ contract Swap is Ownable{
 
     function signPartner() external {
         require(_isPartner[msg.sender] == 0, "Already sign");
-        _newPartner(msg.sender, 0, 0, false);
+        _newPartner(msg.sender, 0, 0, 0, false);
     }
 
-    function newPartner(address wallet, uint8 rebate, uint8 rebateBuyer, bool customRebate) external onlyOwner returns (bool) {
-        return _newPartner(wallet, rebate, rebateBuyer, customRebate);
+    function newPartner(address wallet, uint8 rebate, uint8 rebateBuyer, uint8 rebateUSDTorBNB, bool customRebate) external onlyOwner returns (bool) {
+        return _newPartner(wallet, rebate, rebateBuyer, rebateUSDTorBNB, customRebate);
     }
 
     function updatePartner(uint256 id, uint8 rebate, uint8 rebateBuyer, bool customRebate) external onlyOwner {
