@@ -299,10 +299,11 @@ contract Swap is Ownable{
         return _newPartner(wallet, rebate, rebateBuyer, rebateUSDTorBNB, customRebate);
     }
 
-    function updatePartner(uint256 id, uint8 rebate, uint8 rebateBuyer, bool customRebate) external onlyOwner {
+    function updatePartner(uint256 id, uint8 rebate, uint8 rebateBuyer, uint8 rebateAnoter, bool customRebate) external onlyOwner {
         require(_idPartner[id].wallet != address(0), "ID not found");
         _idPartner[id].rebate = rebate;
         _idPartner[id].rebateBuyer = rebateBuyer;
+        _idPartner[id].rebateAnoter = rebateAnoter;
         _idPartner[id].customRebate = customRebate;
     }
 
@@ -314,13 +315,13 @@ contract Swap is Ownable{
         return (_rebateON);
     }
 
-    function getPartner(uint256 id) external view returns (address, uint8, uint8, bool) {
-        return (_idPartner[id].wallet, _idPartner[id].rebate, _idPartner[id].rebateBuyer, _idPartner[id].customRebate);
+    function getPartner(uint256 id) external view returns (address, uint8, uint8, uint8, bool) {
+        return (_idPartner[id].wallet, _idPartner[id].rebate, _idPartner[id].rebateBuyer, _idPartner[id].rebateAnoter, _idPartner[id].customRebate);
     }
 
-    function getPartnerWithWallet(address wallet) external view returns (uint256, uint8, uint8, bool) {
+    function getPartnerWithWallet(address wallet) external view returns (uint256, uint8, uint8, uint8, bool) {
         uint256 id = _isPartner[wallet]; 
-        return (id, _idPartner[id].rebate, _idPartner[id].rebateBuyer, _idPartner[id].customRebate);
+        return (id, _idPartner[id].rebate, _idPartner[id].rebateBuyer, _idPartner[id].rebateAnoter, _idPartner[id].customRebate);
     }
 
 }
