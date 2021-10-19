@@ -37,12 +37,14 @@ contract Swap is Ownable{
 
     uint256 _lastIdPartner = 10100;
     uint8 _standartRebate = 40;
-    uint8 _standartRebateTransfer = 0;
+    uint8 _standartRebateBuyer = 0;
+    uint8 _standartRebateAnoter = 0;
     mapping (address => uint256) internal _isPartner;
     struct Partner {
         address wallet;
         uint8 rebate;
-        uint8 rebateTransfer;
+        uint8 rebateBuyer;
+        uint8 rebateAnoter;
         bool customRebate;
     }
     mapping (uint256 => Partner) internal _idPartner;
@@ -56,6 +58,7 @@ contract Swap is Ownable{
         address walletPartner;
         uint256 rebatePartner;
         uint256 rebateBuyer;
+        uint256 rebateAnoter;
     }
     //mapping (uint256 => Sale) internal _idSale;
     //uint256 _lastIdSale = 0;
@@ -63,10 +66,10 @@ contract Swap is Ownable{
     struct Rebate {
         uint256 amoutPartner;
         uint256 amountBuyer;
+        uint256 amountAnoter;
     }
     
     bool internal _rebateON = true;
-
 
     //debug - test
     IBEP20  public ZEEXTest;
@@ -79,8 +82,8 @@ contract Swap is Ownable{
     //event setSale (uint256 id, address buyer, uint256 amoutZeex, uint8 anoterToken, uint256 amountAnoter, uint256 partnerId, address walletPartner, uint256 rebatePartner, uint256 rebateBuyer, uint256 moment);
     event setSale (Sale sale);
     
-    //event setNewPartner (uint256 id, address wallet, uint8 rebate, uint8 rebateTransfer, bool customRebate);
-    //event setUpdatePartner (uint256 id, address wallet, uint8 rebate, uint8 rebateTransfer, bool customRebate);
+    //event setNewPartner (uint256 id, address wallet, uint8 rebate, uint8 rebateBuyer, bool customRebate);
+    //event setUpdatePartner (uint256 id, address wallet, uint8 rebate, uint8 rebateBuyer, bool customRebate);
 
     /**
     * Network: BSC Testnet
@@ -97,8 +100,7 @@ contract Swap is Ownable{
         _USDT      = IBEP20(0xEdA7631884Ee51b4cAa85c4EEed7b0926954d180); //faucet
     }
 
-
-    function _putPartner(address wallet, uint8 rebate, uint8 rebateTransfer, bool customRebate) internal returns (bool) {
+    function _newPartner(address wallet, uint8 rebate, uint8 rebateBuyer, uint8 rebateAnoter, bool customRebate) internal returns (bool) {
         if (_isPartner[wallet] != 0) {
             return false;
         }
@@ -107,13 +109,13 @@ contract Swap is Ownable{
         Partner memory _partner;
         _partner.wallet = wallet; 
         _partner.rebate = rebate;  //0 para não ter rebates
-        _partner.rebateTransfer = rebateTransfer;
+        _partner.rebateBuyer = rebateBuyer;
+        _partner.rebateAnoter = rebateAnoter;
         _partner.customRebate = customRebate;
         _idPartner[_lastIdPartner] = _partner;
         return true;
     }
 
-    
     /**
      * Returns the latest price BNB/USD
      */
@@ -128,9 +130,20 @@ contract Swap is Ownable{
         return (price * _percentPriceBNB) / 100;
     }
 
+    function _verifySplitSale(uint256 id, uint256 amount) internal view returns(uint256) {
+        uint8 customPercent   = _idPartner[id].rebateAnoter;
+        uint8 standartPercent = _standartRebateAnoter;
+        uint256 amountRebate = 0;
+        if(_rebateON && _idPartner[id].wallet != address(0) && _idPartner[id].customRebate && customPercent > 0) {
+            amountRebate = (amount * customPercent) / 100;
+        }
+        if(_rebateON && _idPartner[id].wallet != address(0) && _idPartner[id].customRebate == false && standartPercent > 0) {
+            amountRebate = (amount * standartPercent) / 100;
+        }
+        return amountRebate;
+    }
+
     function _trySendRebate(uint256 id, uint256 amount, address buyer) internal returns(Rebate memory) {
-       
-       
         Rebate memory rebate;
         rebate.amoutPartner = 0; 
         rebate.amountBuyer = 0;
@@ -144,10 +157,10 @@ contract Swap is Ownable{
 
         if (_idPartner[id].customRebate == false) {
             rebate.amoutPartner = (amount * _standartRebate) / 100;
-            rebate.amountBuyer = (amount * _standartRebateTransfer) / 100; 
+            rebate.amountBuyer  = (amount * _standartRebateBuyer) / 100; 
         } else {
             rebate.amoutPartner  = (amount * _idPartner[id].rebate) / 100;
-            rebate.amountBuyer   = (amount * _idPartner[id].rebateTransfer) / 100; 
+            rebate.amountBuyer   = (amount * _idPartner[id].rebateBuyer) / 100; 
         }
         if(rebate.amoutPartner > 0) {
             _safeTransferFrom(_ZEEX, _ownerZEEX, _idPartner[id].wallet, rebate.amoutPartner);
@@ -156,7 +169,6 @@ contract Swap is Ownable{
             _safeTransferFrom(_ZEEX, _ownerZEEX, buyer, rebate.amountBuyer);
         }
 
-        
         ZEEXTest = _ZEEX;
         ownerZEEXTeste = _ownerZEEX;
         partnerWalletTest = _idPartner[id].wallet;
@@ -178,7 +190,15 @@ contract Swap is Ownable{
             "ZEEX allowance too low"
         );
         address payable ownerZ = payable(_ownerZEEX);
+        
+        uint256 amountBNBtoPartner = _verifySplitSale(idRebate, amountBNB);
+        amountBNB = amountBNB - amountBNBtoPartner;
         ownerZ.transfer(amountBNB);
+        if (amountBNBtoPartner > 0) {
+            address payable partnerWallet = payable(_idPartner[idRebate].wallet);
+            partnerWallet.transfer(amountBNBtoPartner);
+        }
+
         //_safeTransferFrom(_USDT, msg.sender, _ownerZEEX, amountUSDT);
         _safeTransferFrom(_ZEEX, _ownerZEEX, msg.sender, _amountZEEX);
         Rebate memory rebate = _trySendRebate(idRebate, _amountZEEX, msg.sender);
@@ -192,6 +212,7 @@ contract Swap is Ownable{
         sale.walletPartner = _idPartner[idRebate].wallet;
         sale.rebateBuyer = rebate.amountBuyer;
         sale.rebatePartner = rebate.amoutPartner;  
+        sale.rebateAnoter = amountBNBtoPartner; 
         emit setSale(sale);
     }
 
@@ -206,7 +227,14 @@ contract Swap is Ownable{
             _USDT.allowance(msg.sender, address(this)) >= amountUSDT,
             "USDT allowance too low"
         );
+
+        uint256 amountUSDTtoPartner = _verifySplitSale(idRebate, amountUSDT); 
+        amountUSDT = amountUSDT - amountUSDTtoPartner;
         _safeTransferFrom(_USDT, msg.sender, _ownerZEEX, amountUSDT);
+        if (amountUSDTtoPartner > 0) {
+            _safeTransferFrom(_USDT, msg.sender, _idPartner[idRebate].wallet, amountUSDTtoPartner);
+        }
+        //_safeTransferFrom(_USDT, msg.sender, _ownerZEEX, amountUSDT);
         _safeTransferFrom(_ZEEX, _ownerZEEX, msg.sender, _amountZEEX);
         Rebate memory rebate = _trySendRebate(idRebate, _amountZEEX, msg.sender);
         Sale memory sale;
@@ -218,6 +246,7 @@ contract Swap is Ownable{
         sale.walletPartner = _idPartner[idRebate].wallet;
         sale.rebateBuyer = rebate.amountBuyer;
         sale.rebatePartner = rebate.amoutPartner;  
+        sale.rebateAnoter = amountUSDTtoPartner; 
         emit setSale(sale);
     }
 
@@ -251,9 +280,10 @@ contract Swap is Ownable{
         _percentPriceBNB = percent;  
     }
 
-    function setStandartRebate(uint8 rebate, uint8 rebateTransfer) external onlyOwner {
-        _standartRebate = rebate;  
-        _standartRebateTransfer = rebateTransfer;  
+    function setStandartRebate(uint8 rebateZEEX, uint8 rebateBuyerZEEX, uint8 rebateUSDTorBNB) external onlyOwner {
+        _standartRebate       = rebateZEEX;  
+        _standartRebateBuyer  = rebateBuyerZEEX;  
+        _standartRebateAnoter = rebateUSDTorBNB;
     }
 
     function getParamsPrice() external view returns (address, uint256, int, uint256, uint256) {
@@ -262,17 +292,17 @@ contract Swap is Ownable{
 
     function signPartner() external {
         require(_isPartner[msg.sender] == 0, "Already sign");
-        _putPartner(msg.sender, 0, 0, false);
+        _newPartner(msg.sender, 0, 0, false);
     }
 
-    function putPartner(address wallet, uint8 rebate, uint8 rebateTransfer, bool customRebate) external onlyOwner returns (bool) {
-        return _putPartner(wallet, rebate, rebateTransfer, customRebate);
+    function newPartner(address wallet, uint8 rebate, uint8 rebateBuyer, bool customRebate) external onlyOwner returns (bool) {
+        return _newPartner(wallet, rebate, rebateBuyer, customRebate);
     }
 
-    function setPartner(uint256 id, uint8 rebate, uint8 rebateTransfer, bool customRebate) external onlyOwner {
+    function updatePartner(uint256 id, uint8 rebate, uint8 rebateBuyer, bool customRebate) external onlyOwner {
         require(_idPartner[id].wallet != address(0), "ID not found");
         _idPartner[id].rebate = rebate;
-        _idPartner[id].rebateTransfer = rebateTransfer;
+        _idPartner[id].rebateBuyer = rebateBuyer;
         _idPartner[id].customRebate = customRebate;
     }
 
@@ -285,13 +315,12 @@ contract Swap is Ownable{
     }
 
     function getPartner(uint256 id) external view returns (address, uint8, uint8, bool) {
-        return (_idPartner[id].wallet, _idPartner[id].rebate, _idPartner[id].rebateTransfer, _idPartner[id].customRebate);
+        return (_idPartner[id].wallet, _idPartner[id].rebate, _idPartner[id].rebateBuyer, _idPartner[id].customRebate);
     }
 
     function getPartnerWithWallet(address wallet) external view returns (uint256, uint8, uint8, bool) {
         uint256 id = _isPartner[wallet]; 
-        return (id, _idPartner[id].rebate, _idPartner[id].rebateTransfer, _idPartner[id].customRebate);
+        return (id, _idPartner[id].rebate, _idPartner[id].rebateBuyer, _idPartner[id].customRebate);
     }
-
 
 }
