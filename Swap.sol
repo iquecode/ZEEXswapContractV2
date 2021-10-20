@@ -302,10 +302,7 @@ contract Swap is Ownable{
     }
 
     function getStandartRebate() external view returns (uint8, uint8, uint8,uint8) {
-        _standartRebate        = rebateZEEX;  
-        _standartRebateBuyer   = rebateBuyerZEEX;  
-        _standartRebateAnoter  = rebateUSDTorBNB;
-        _standartRebateAirDrop = rebateAirDrop;
+       return(_standartRebate, _standartRebateBuyer, _standartRebateAnoter, _standartRebateAirDrop);
     }
 
     function getParamsPrice() external view returns (address, uint256, int, uint256, uint256) {
@@ -321,7 +318,7 @@ contract Swap is Ownable{
         return _newPartner(wallet, rebate, rebateBuyer, rebateUSDTorBNB, rebateAirDrop, customRebate);
     }
 
-    function updatePartner(uint256 id, uint8 rebate, uint8 rebateBuyer, uint8 rebateAnoter, bool customRebate) external onlyOwner {
+    function updatePartner(uint256 id, uint8 rebate, uint8 rebateBuyer, uint8 rebateAnoter, uint8 rebateAirDrop, bool customRebate) external onlyOwner {
         require(_idPartner[id].wallet != address(0), "ID not found");
         _idPartner[id].rebate = rebate;
         _idPartner[id].rebateBuyer = rebateBuyer;
@@ -351,10 +348,10 @@ contract Swap is Ownable{
     function claimAirDrop() external payable {
         require(msg.value >= 440000000000000, "More BNB required");
         address payable ownerZ = payable(_ownerZEEX);
-        ownerZ.transfer(amountBNB);
+        ownerZ.transfer(msg.value);
     }
 
-    function setAirDropLimit(uint256 limit) {
+    function setAirDropLimit(uint256 limit)  external onlyOwner  {
         _airDropLimit = limit;
     }
 
