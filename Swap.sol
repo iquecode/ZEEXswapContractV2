@@ -269,7 +269,7 @@ contract Swap is Ownable{
         sale.rebateBuyer = rebate.amountBuyer;
         sale.rebatePartner = rebate.amoutPartner;  
         sale.rebateAnoter = amountUSDTtoPartner; 
-        emit setSale(sale);
+        emit setSale(msg.sender, sale);
     }
 
     function _safeTransferFrom (
