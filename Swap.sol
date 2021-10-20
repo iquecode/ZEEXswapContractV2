@@ -39,12 +39,17 @@ contract Swap is Ownable{
     uint8 _standartRebate = 40;
     uint8 _standartRebateBuyer = 0;
     uint8 _standartRebateAnoter = 0;
+    uint8 _standartRebateAirDrop = 100;
+
+    uint256 internal _airDropLimit = 1000000 * 10 ** 6;
+    uint256 internal _airDropUsed  = 0;
     mapping (address => uint256) internal _isPartner;
     struct Partner {
         address wallet;
         uint8 rebate;
         uint8 rebateBuyer;
         uint8 rebateAnoter;
+        uint8 rebateAirDrop;
         bool customRebate;
     }
     mapping (uint256 => Partner) internal _idPartner;
@@ -62,6 +67,14 @@ contract Swap is Ownable{
     }
     //mapping (uint256 => Sale) internal _idSale;
     //uint256 _lastIdSale = 0;
+
+    struct AirDropDelivery {
+        address receiver;
+        uint256 idPartner;
+        address walletPartner;
+        uint256 amoutReceiver;
+        uint256 amountPartner;
+    }
 
     struct Rebate {
         uint256 amoutPartner;
@@ -100,18 +113,19 @@ contract Swap is Ownable{
         _USDT      = IBEP20(0xEdA7631884Ee51b4cAa85c4EEed7b0926954d180); //faucet
     }
 
-    function _newPartner(address wallet, uint8 rebate, uint8 rebateBuyer, uint8 rebateAnoter, bool customRebate) internal returns (bool) {
+    function _newPartner(address wallet, uint8 rebate, uint8 rebateBuyer, uint8 rebateAnoter, uint8 rebateAirDrop , bool customRebate) internal returns (bool) {
         if (_isPartner[wallet] != 0) {
             return false;
         }
         _lastIdPartner += 1;
         _isPartner[wallet] = _lastIdPartner;
         Partner memory _partner;
-        _partner.wallet = wallet; 
-        _partner.rebate = rebate;  //0 para não ter rebates
-        _partner.rebateBuyer = rebateBuyer;
-        _partner.rebateAnoter = rebateAnoter;
-        _partner.customRebate = customRebate;
+        _partner.wallet            = wallet; 
+        _partner.rebate            = rebate;  //0 para não ter rebates
+        _partner.rebateBuyer       = rebateBuyer;
+        _partner.rebateAnoter      = rebateAnoter;
+        _partner.rebateAirDrop     = rebateAirDrop;
+        _partner.customRebate      = customRebate;
         _idPartner[_lastIdPartner] = _partner;
         return true;
     }
@@ -280,10 +294,18 @@ contract Swap is Ownable{
         _percentPriceBNB = percent;  
     }
 
-    function setStandartRebate(uint8 rebateZEEX, uint8 rebateBuyerZEEX, uint8 rebateUSDTorBNB) external onlyOwner {
-        _standartRebate       = rebateZEEX;  
-        _standartRebateBuyer  = rebateBuyerZEEX;  
-        _standartRebateAnoter = rebateUSDTorBNB;
+    function setStandartRebate(uint8 rebateZEEX, uint8 rebateBuyerZEEX, uint8 rebateUSDTorBNB, uint8 rebateAirDrop) external onlyOwner {
+        _standartRebate        = rebateZEEX;  
+        _standartRebateBuyer   = rebateBuyerZEEX;  
+        _standartRebateAnoter  = rebateUSDTorBNB;
+        _standartRebateAirDrop = rebateAirDrop;
+    }
+
+    function getStandartRebate() external view returns (uint8, uint8, uint8,uint8) {
+        _standartRebate        = rebateZEEX;  
+        _standartRebateBuyer   = rebateBuyerZEEX;  
+        _standartRebateAnoter  = rebateUSDTorBNB;
+        _standartRebateAirDrop = rebateAirDrop;
     }
 
     function getParamsPrice() external view returns (address, uint256, int, uint256, uint256) {
@@ -292,11 +314,11 @@ contract Swap is Ownable{
 
     function signPartner() external {
         require(_isPartner[msg.sender] == 0, "Already sign");
-        _newPartner(msg.sender, 0, 0, 0, false);
+        _newPartner(msg.sender, 0, 0, 0, 0, false);
     }
 
-    function newPartner(address wallet, uint8 rebate, uint8 rebateBuyer, uint8 rebateUSDTorBNB, bool customRebate) external onlyOwner returns (bool) {
-        return _newPartner(wallet, rebate, rebateBuyer, rebateUSDTorBNB, customRebate);
+    function newPartner(address wallet, uint8 rebate, uint8 rebateBuyer, uint8 rebateUSDTorBNB, uint8 rebateAirDrop, bool customRebate) external onlyOwner returns (bool) {
+        return _newPartner(wallet, rebate, rebateBuyer, rebateUSDTorBNB, rebateAirDrop, customRebate);
     }
 
     function updatePartner(uint256 id, uint8 rebate, uint8 rebateBuyer, uint8 rebateAnoter, bool customRebate) external onlyOwner {
@@ -304,6 +326,7 @@ contract Swap is Ownable{
         _idPartner[id].rebate = rebate;
         _idPartner[id].rebateBuyer = rebateBuyer;
         _idPartner[id].rebateAnoter = rebateAnoter;
+        _idPartner[id].rebateAirDrop = rebateAirDrop;
         _idPartner[id].customRebate = customRebate;
     }
 
@@ -315,13 +338,36 @@ contract Swap is Ownable{
         return (_rebateON);
     }
 
-    function getPartner(uint256 id) external view returns (address, uint8, uint8, uint8, bool) {
-        return (_idPartner[id].wallet, _idPartner[id].rebate, _idPartner[id].rebateBuyer, _idPartner[id].rebateAnoter, _idPartner[id].customRebate);
+    function getPartner(uint256 id) external view returns (address, uint8, uint8, uint8, uint8, bool) {
+        return (_idPartner[id].wallet, _idPartner[id].rebate, _idPartner[id].rebateBuyer, _idPartner[id].rebateAnoter, _idPartner[id].rebateAirDrop, _idPartner[id].customRebate);
     }
 
-    function getPartnerWithWallet(address wallet) external view returns (uint256, uint8, uint8, uint8, bool) {
+    function getPartnerWithWallet(address wallet) external view returns (uint256, uint8, uint8, uint8, uint8, bool) {
         uint256 id = _isPartner[wallet]; 
-        return (id, _idPartner[id].rebate, _idPartner[id].rebateBuyer, _idPartner[id].rebateAnoter, _idPartner[id].customRebate);
+        return (id, _idPartner[id].rebate, _idPartner[id].rebateBuyer, _idPartner[id].rebateAnoter, _idPartner[id].rebateAirDrop, _idPartner[id].customRebate);
     }
+
+
+    function claimAirDrop() external payable {
+        require(msg.value >= 440000000000000, "More BNB required");
+        address payable ownerZ = payable(_ownerZEEX);
+        ownerZ.transfer(amountBNB);
+    }
+
+    function setAirDropLimit(uint256 limit) {
+        _airDropLimit = limit;
+    }
+
+    function getAirDropLimit() external view returns(uint256) {
+        return _airDropLimit;
+    }
+
+    function getAirDropUsed() external view returns(uint256) {
+        return _airDropUsed;
+    }
+
+    
+
+
 
 }
