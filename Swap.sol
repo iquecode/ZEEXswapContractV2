@@ -1,7 +1,6 @@
 // Submitted for verification at BscScan.com on 2021-10-XX
 
 /*
-*
 Public contract (Version 2.0) for secure swap between ZEEX (token 0xb9c21a1A716Ee781B0Ab282F3AEdDB3382d7aAdc) and:
 USDT(BEP20) or Native BNB.
 *
@@ -189,13 +188,8 @@ contract Swap is Ownable{
         return rebate;
     }
 
-    function getLatestBNB(uint8 coin) external view returns (int) {   //1usd  2zeex
-        if (coin == 1) {
-             return _getLatestBNBPrice(); 
-        }
-        if (coin == 2) {
-             return int (_valueZEEX * 10 ** 8) / _getLatestBNBPrice(); 
-        }
+    function getLatestBNB() external view returns (int) {   //BNB in usd
+        return _getLatestBNBPrice(); 
     }
 
     function buyWithBNB(uint256 idRebate, uint256 nZeex) external payable {
@@ -432,6 +426,12 @@ contract Swap is Ownable{
 
     function getTolerancePercent() external view returns(uint8) {
         return _tolerancePercent;
+    }
+
+    function reSetParamsConstructor(address priceFeedAddr, address ZEEXAddr, address USDTAddr) external onlyOwner {
+         priceFeed = AggregatorV3Interface(priceFeedAddr);
+        _ZEEX      = IBEP20(ZEEXAddr); 
+        _USDT      = IBEP20(USDTAddr); 
     }
 
     function Destruct() external onlyOwner  {
