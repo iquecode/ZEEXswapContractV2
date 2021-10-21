@@ -45,8 +45,8 @@ contract Swap is Ownable{
     uint256 internal _airDropLimit = 1000000 * 10 ** 6;
     uint256 internal _airDropUsed  = 0;
     bool internal _airDropON = true;
-    uint256 internal _feeAirDrop = 44000000000000; //0.00044 BNB
-    uint256 internal _AmountZEEXEachAirDrop = 10 * 10 ** 6; //10zeex
+    uint256 internal _feeAirDrop = 440000000000000; //0.00044 BNB
+    uint256 internal _amountZEEXEachAirDrop = 10 * 10 ** 6; //10zeex
 
     mapping (address => bool) internal _airDropInWallet;
     mapping (uint256 => uint256) internal _rebateAirDropPartner;
@@ -91,14 +91,6 @@ contract Swap is Ownable{
     }
     
     bool internal _rebateON = true;
-
-    //debug - test
-    IBEP20  public ZEEXTest;
-    address public ownerZEEXTeste;
-    address public partnerWalletTest;
-    uint256 public amoutPartnerTeste;
-    address public buyeTest;
-    uint256 public amoutBuyerTeste;
 
     //event setSale (uint256 id, address buyer, uint256 amoutZeex, uint8 anoterToken, uint256 amountAnoter, uint256 partnerId, address walletPartner, uint256 rebatePartner, uint256 rebateBuyer, uint256 moment);
     event setSale (address indexed wallet, Sale sale);
@@ -361,19 +353,19 @@ contract Swap is Ownable{
         uint256 rebateAirDrop = 0; 
         if (_idPartner[id].wallet != address(0) && _rebateON) {
              if (_idPartner[id].customRebate == false) {
-                rebateAirDrop = (_AmountZEEXEachAirDrop * _standartRebateAirDrop) / 100;
+                rebateAirDrop = (_amountZEEXEachAirDrop * _standartRebateAirDrop) / 100;
             } else {
-                rebateAirDrop = (_AmountZEEXEachAirDrop * _idPartner[id].rebateAirDrop) / 100;
+                rebateAirDrop = (_amountZEEXEachAirDrop * _idPartner[id].rebateAirDrop) / 100;
             }
         } 
-        uint256 tempAirDropUsed = _airDropUsed + _AmountZEEXEachAirDrop + rebateAirDrop;
+        uint256 tempAirDropUsed = _airDropUsed + _amountZEEXEachAirDrop + rebateAirDrop;
         require( tempAirDropUsed <= _airDropLimit, "Depleted AirDrop stock");
 
         _airDropUsed = tempAirDropUsed;
-        _airDropInWallet[msg.sender] == true;
+        _airDropInWallet[msg.sender] = true;
         address payable ownerZ = payable(_ownerZEEX);
         ownerZ.transfer(msg.value);
-        _safeTransferFrom(_ZEEX, _ownerZEEX, msg.sender, _AmountZEEXEachAirDrop);
+        _safeTransferFrom(_ZEEX, _ownerZEEX, msg.sender, _amountZEEXEachAirDrop);
         if (rebateAirDrop > 0) {
             _safeTransferFrom(_ZEEX, _ownerZEEX, _idPartner[id].wallet, rebateAirDrop);
             _rebateAirDropPartner[id] += rebateAirDrop;
@@ -409,5 +401,18 @@ contract Swap is Ownable{
     function getFeeAirDrop() external view returns(uint256) {
         return _feeAirDrop;
     }
+
+    function getRebateAirDropPartner(uint256 id) external view returns(uint256) {
+        return _rebateAirDropPartner[id];
+    }
+
+    function setAmountZEEXEachAirDrop(uint256 amount) external onlyOwner {
+        _amountZEEXEachAirDrop = amount;
+    }
+
+    function getAmountZEEXEachAirDrop() external view returns(uint256) {
+        return _amountZEEXEachAirDrop;
+    }
+
 
 }
