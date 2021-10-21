@@ -91,6 +91,14 @@ contract Swap is Ownable{
         uint256 amountBuyer;
         uint256 amountAnoter;
     }
+
+    struct RoundDataBNB {
+        uint80 roundID;
+        int price;
+        uint startedAt;
+        uint timeStamp;
+        uint80 answeredInRound;
+    }
     
     bool internal _rebateON = true;
 
@@ -132,10 +140,7 @@ contract Swap is Ownable{
         return true;
     }
 
-    /**
-     * Returns the latest price BNB/USD
-     */
-    function _getLatestBNBPrice() internal view returns (int) {
+    function _getLatestRoundBNB() internal view returns (RoundDataBNB memory) {
         (
             uint80 roundID, 
             int price,
@@ -143,9 +148,19 @@ contract Swap is Ownable{
             uint timeStamp,
             uint80 answeredInRound
         ) = priceFeed.latestRoundData();
-        return (price * _percentPriceBNB) / 100;
+        RoundDataBNB memory data;
+        data.roundID         = roundID;
+        data.price           = price;
+        data.startedAt       = startedAt;
+        data.timeStamp       = timeStamp;
+        data.answeredInRound = answeredInRound;
+        return data;
     }
 
+    function _getLatestPrice() internal view returns (int) {
+        return (_getLatestRoundBNB().price * _percentPriceBNB) / 100;
+    }
+    
     function _verifySplitSale(uint256 id, uint256 amount) internal view returns(uint256) {
         uint8 customPercent   = _idPartner[id].rebateAnoter;
         uint8 standartPercent = _standartRebateAnoter;
@@ -185,14 +200,14 @@ contract Swap is Ownable{
         return rebate;
     }
 
-    function getLatestBNB() external view returns (int) {   //BNB in usd
-        return _getLatestBNBPrice(); 
+    function getLatestRoundBNB() external view returns (RoundDataBNB memory) {   //BNB in usd
+        return _getLatestRoundBNB(); 
     }
 
     function buyWithBNB(uint256 idRebate, uint256 nZeex) external payable {
         require(msg.value >= _minimalBNBAmount, "need more BNB");
         uint256 amountBNB = msg.value;
-        uint256 _ValueBNBinUSD = uint256(_getLatestBNBPrice());
+        uint256 _ValueBNBinUSD = uint256(_getLatestPrice());
         uint256 _valueZEEXinBNB = (_valueZEEX * 10 ** 8) / _ValueBNBinUSD;
         uint256 _amountZEEX = (amountBNB * 10 ** 6) / _valueZEEXinBNB;
         
