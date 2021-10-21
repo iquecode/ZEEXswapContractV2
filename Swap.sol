@@ -31,7 +31,7 @@ contract Swap is Ownable{
     IBEP20  internal _ZEEX;
     address internal _ownerZEEX;
     IBEP20  internal _USDT;
-    uint256 _valueZEEX     = 22 * 10 ** 16;  // 1ZEEX = 0,22USDT 
+    uint256 _valueZEEX     = 33 * 10 ** 16;  // 1ZEEX = 0,33USDT 
     int   _percentPriceBNB = 95; // 0-100% BNB/USD
     uint256 _minimalBNBAmount  = 1 * 10 ** 17; //0.1 BNB
     uint256 _minimalUSDTAmount = 30 * 10 ** 18; //30 USDT
@@ -182,13 +182,6 @@ contract Swap is Ownable{
         if(rebate.amountBuyer > 0) {
             _safeTransferFrom(_ZEEX, _ownerZEEX, buyer, rebate.amountBuyer);
         }
-
-        ZEEXTest = _ZEEX;
-        ownerZEEXTeste = _ownerZEEX;
-        partnerWalletTest = _idPartner[id].wallet;
-        amoutPartnerTeste = rebate.amoutPartner;
-        buyeTest = buyer;
-        amoutBuyerTeste = rebate.amountBuyer;
 
         return rebate;
     }
