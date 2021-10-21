@@ -28,7 +28,7 @@ import "./AggregatorV3Interface.sol";
 import "./IBEP20.sol";
 import "./Ownable.sol";
 
-contract Swap is Ownable{
+contract SaleAirDrop is Ownable{
     
     AggregatorV3Interface internal priceFeed;
     IBEP20  internal _ZEEX;
@@ -160,6 +160,10 @@ contract Swap is Ownable{
     function _getLatestPrice() internal view returns (int) {
         return (_getLatestRoundBNB().price * _percentPriceBNB) / 100;
     }
+
+    function getLatestPriceBNBAdjust() external view returns (int) {
+        return (_getLatestRoundBNB().price * _percentPriceBNB) / 100;
+    }
     
     function _verifySplitSale(uint256 id, uint256 amount) internal view returns(uint256) {
         uint8 customPercent   = _idPartner[id].rebateAnoter;
@@ -248,7 +252,7 @@ contract Swap is Ownable{
     }
 
     function swap(uint256 amountUSDT, uint256 idRebate) public {
-        require(amountUSDT >= _minimalUSDTAmount);
+        require(amountUSDT >= _minimalUSDTAmount, "Need more USDT");
         uint256 _amountZEEX = (amountUSDT * 10 ** 6) / _valueZEEX;
         require(
             _ZEEX.allowance(_ownerZEEX, address(this)) >= _amountZEEX,  
@@ -331,6 +335,7 @@ contract Swap is Ownable{
     }
 
     function newPartner(address wallet, uint8 rebate, uint8 rebateBuyer, uint8 rebateUSDTorBNB, uint8 rebateAirDrop, bool customRebate) external onlyOwner returns (bool) {
+        require(_isPartner[wallet] == 0, "Partner already exist");
         return _newPartner(wallet, rebate, rebateBuyer, rebateUSDTorBNB, rebateAirDrop, customRebate);
     }
 
