@@ -1,8 +1,15 @@
 // Submitted for verification at BscScan.com on 2021-10-XX
 
 /*
-Public contract (Version 1.0) for secure swap between ZEEX (token 0xb9c21a1A716Ee781B0Ab282F3AEdDB3382d7aAdc) 
-and USDT (BEP20). Used by the Artzeex website and tools.
+*
+Public contract (Version 2.0) for secure swap between ZEEX (token 0xb9c21a1A716Ee781B0Ab282F3AEdDB3382d7aAdc) and:
+USDT(BEP20) or Native BNB.
+*
+AirDros claim tool and Partner address registration
+*
+Automatic tranfer Partners comission
+*
+Used by the Artzeex website and tools. 
 *
 The Artzeex Ecosystem is a project focused on revolutionizing the art world by adding value to the world of NFT's 
 and the metaverse. For more information visit the link bellow:
@@ -15,12 +22,9 @@ Symbol: ZEEX
 Decimals: 6
 */
 
-//anotações: ver emits etc
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.7;
 
-//import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "./AggregatorV3Interface.sol";
 import "./IBEP20.sol";
 import "./Ownable.sol";
@@ -33,19 +37,20 @@ contract Swap is Ownable{
     IBEP20  internal _USDT;
     uint256 _valueZEEX     = 33 * 10 ** 16;  // 1ZEEX = 0,33USDT 
     int   _percentPriceBNB = 95; // 0-100% BNB/USD
+    uint8 _tolerancePercent = 3;
     uint256 _minimalBNBAmount  = 1 * 10 ** 17; //0.1 BNB
     uint256 _minimalUSDTAmount = 30 * 10 ** 18; //30 USDT
 
     uint256 _lastIdPartner = 10100;
-    uint8 _standartRebate = 40;
+    uint8 _standartRebate = 35;
     uint8 _standartRebateBuyer = 0;
-    uint8 _standartRebateAnoter = 0;
+    uint8 _standartRebateAnoter = 5;
     uint8 _standartRebateAirDrop = 100;
 
     uint256 internal _airDropLimit = 1000000 * 10 ** 6;
     uint256 internal _airDropUsed  = 0;
     bool internal _airDropON = true;
-    uint256 internal _feeAirDrop = 440000000000000; //0.00044 BNB
+    uint256 internal _feeAirDrop = 400000000000000; //0.0004 BNB
     uint256 internal _amountZEEXEachAirDrop = 10 * 10 ** 6; //10zeex
 
     mapping (address => bool) internal _airDropInWallet;
@@ -73,8 +78,6 @@ contract Swap is Ownable{
         uint256 rebateBuyer;
         uint256 rebateAnoter;
     }
-    //mapping (uint256 => Sale) internal _idSale;
-    //uint256 _lastIdSale = 0;
 
     struct AirDropDelivery {
         address receiver;
@@ -92,11 +95,10 @@ contract Swap is Ownable{
     
     bool internal _rebateON = true;
 
-    //event setSale (uint256 id, address buyer, uint256 amoutZeex, uint8 anoterToken, uint256 amountAnoter, uint256 partnerId, address walletPartner, uint256 rebatePartner, uint256 rebateBuyer, uint256 moment);
-    event setSale (address indexed wallet, Sale sale);
-    
-    //event setNewPartner (uint256 id, address wallet, uint8 rebate, uint8 rebateBuyer, bool customRebate);
-    //event setUpdatePartner (uint256 id, address wallet, uint8 rebate, uint8 rebateBuyer, bool customRebate);
+    event SaleEvent (address indexed wallet, Sale sale);
+    event NewPartnerEvent (uint256 indexed id, Partner partner);
+    event UpdatePartnerEvent (uint256 indexed id, Partner partner);
+    event ClaimAirDropEvent (address indexed wallet, uint256 amout, address partnerAddr, uint256 amountPartner);
 
     /**
     * Network: BSC Testnet
@@ -127,6 +129,7 @@ contract Swap is Ownable{
         _partner.rebateAirDrop     = rebateAirDrop;
         _partner.customRebate      = customRebate;
         _idPartner[_lastIdPartner] = _partner;
+        emit NewPartnerEvent(_lastIdPartner, _partner);
         return true;
     }
 
@@ -186,12 +189,29 @@ contract Swap is Ownable{
         return rebate;
     }
 
-    function buyWithBNB(uint256 idRebate) external payable {
+    function getLatestBNB(uint8 coin) external view returns (int) {   //1usd  2zeex
+        if (coin == 1) {
+             return _getLatestBNBPrice(); 
+        }
+        if (coin == 2) {
+             return int (_valueZEEX * 10 ** 8) / _getLatestBNBPrice(); 
+        }
+    }
+
+    function buyWithBNB(uint256 idRebate, uint256 nZeex) external payable {
         require(msg.value >= _minimalBNBAmount, "need more BNB");
         uint256 amountBNB = msg.value;
         uint256 _ValueBNBinUSD = uint256(_getLatestBNBPrice());
         uint256 _valueZEEXinBNB = (_valueZEEX * 10 ** 8) / _ValueBNBinUSD;
         uint256 _amountZEEX = (amountBNB * 10 ** 6) / _valueZEEXinBNB;
+        
+        if (nZeex > 0) {
+            uint8 multTolerance = 100 - _tolerancePercent;
+            if ( (nZeex * multTolerance) / 100 >= _amountZEEX) {
+                _amountZEEX = nZeex;
+            }
+        }
+
         require(
             _ZEEX.allowance(_ownerZEEX, address(this)) >= _amountZEEX,  
             "ZEEX allowance too low"
@@ -220,7 +240,7 @@ contract Swap is Ownable{
         sale.rebateBuyer = rebate.amountBuyer;
         sale.rebatePartner = rebate.amoutPartner;  
         sale.rebateAnoter = amountBNBtoPartner; 
-        emit setSale(msg.sender, sale);
+        emit SaleEvent(msg.sender, sale);
     }
 
     function swap(uint256 amountUSDT, uint256 idRebate) public {
@@ -254,7 +274,7 @@ contract Swap is Ownable{
         sale.rebateBuyer = rebate.amountBuyer;
         sale.rebatePartner = rebate.amoutPartner;  
         sale.rebateAnoter = amountUSDTtoPartner; 
-        emit setSale(msg.sender, sale);
+        emit SaleEvent(msg.sender, sale);
     }
 
     function _safeTransferFrom (
@@ -318,6 +338,7 @@ contract Swap is Ownable{
         _idPartner[id].rebateAnoter = rebateAnoter;
         _idPartner[id].rebateAirDrop = rebateAirDrop;
         _idPartner[id].customRebate = customRebate;
+        emit UpdatePartnerEvent(id, _idPartner[id]);
     }
 
     function setRebateON(bool rebateON) external onlyOwner {
@@ -337,9 +358,7 @@ contract Swap is Ownable{
         return (id, _idPartner[id].rebate, _idPartner[id].rebateBuyer, _idPartner[id].rebateAnoter, _idPartner[id].rebateAirDrop, _idPartner[id].customRebate);
     }
 
-
     function claimAirDrop(uint256 id) public payable {
-
         require(msg.value >= _feeAirDrop, "More BNB required");
         require(_airDropInWallet[msg.sender] == false, "User already claim AirDrop");
         require(_airDropON, "AirDrop OFF");
@@ -364,7 +383,7 @@ contract Swap is Ownable{
             _rebateAirDropPartner[id] += rebateAirDrop;
         }
 
-
+        emit ClaimAirDropEvent (msg.sender, _amountZEEXEachAirDrop, _idPartner[id].wallet, rebateAirDrop);
     }
 
     function setAirDropLimit(uint256 limit)  external onlyOwner  {
@@ -407,5 +426,17 @@ contract Swap is Ownable{
         return _amountZEEXEachAirDrop;
     }
 
+    function setTolerancePercent(uint8 percent) external onlyOwner {
+        _tolerancePercent = percent;
+    }
+
+    function getTolerancePercent() external view returns(uint8) {
+        return _tolerancePercent;
+    }
+
+    function Destruct() external onlyOwner  {
+        address payable addr = payable(address(_ownerZEEX));
+        selfdestruct(addr);
+    }
 
 }
