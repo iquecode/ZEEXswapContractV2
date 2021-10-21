@@ -166,11 +166,9 @@ contract Swap is Ownable{
         if (_rebateON == false) {
             return rebate;
         }   
-
         if(_idPartner[id].wallet == address(0)) {
             return rebate;
         }
-
         if (_idPartner[id].customRebate == false) {
             rebate.amoutPartner = (amount * _standartRebate) / 100;
             rebate.amountBuyer  = (amount * _standartRebateBuyer) / 100; 
@@ -184,7 +182,6 @@ contract Swap is Ownable{
         if(rebate.amountBuyer > 0) {
             _safeTransferFrom(_ZEEX, _ownerZEEX, buyer, rebate.amountBuyer);
         }
-
         return rebate;
     }
 
@@ -201,7 +198,7 @@ contract Swap is Ownable{
         
         if (nZeex > 0) {
             uint8 multTolerance = 100 - _tolerancePercent;
-            if ( (nZeex * multTolerance) / 100 >= _amountZEEX) {
+            if ( (nZeex * multTolerance) / 100 <= _amountZEEX) {
                 _amountZEEX = nZeex;
             }
         }
@@ -220,10 +217,8 @@ contract Swap is Ownable{
             partnerWallet.transfer(amountBNBtoPartner);
         }
 
-        //_safeTransferFrom(_USDT, msg.sender, _ownerZEEX, amountUSDT);
         _safeTransferFrom(_ZEEX, _ownerZEEX, msg.sender, _amountZEEX);
         Rebate memory rebate = _trySendRebate(idRebate, _amountZEEX, msg.sender);
-        //_lastIdSale += 1;
         Sale memory sale;
         sale.buyer = msg.sender;
         sale.amoutZeex = _amountZEEX;
@@ -255,7 +250,6 @@ contract Swap is Ownable{
         if (amountUSDTtoPartner > 0) {
             _safeTransferFrom(_USDT, msg.sender, _idPartner[idRebate].wallet, amountUSDTtoPartner);
         }
-        //_safeTransferFrom(_USDT, msg.sender, _ownerZEEX, amountUSDT);
         _safeTransferFrom(_ZEEX, _ownerZEEX, msg.sender, _amountZEEX);
         Rebate memory rebate = _trySendRebate(idRebate, _amountZEEX, msg.sender);
         Sale memory sale;
@@ -434,7 +428,8 @@ contract Swap is Ownable{
         _USDT      = IBEP20(USDTAddr); 
     }
 
-    function Destruct() external onlyOwner  {
+    function destruct(string memory confirmation) external onlyOwner  {
+        require( keccak256(abi.encodePacked(confirmation)) == keccak256(abi.encodePacked("destroy contract!")), "Requerid confirmation");
         address payable addr = payable(address(_ownerZEEX));
         selfdestruct(addr);
     }
