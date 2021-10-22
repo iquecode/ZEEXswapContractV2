@@ -1,4 +1,4 @@
-// Submitted for verification at BscScan.com on 2021-10-XX
+// Submitted for verification at BscScan.com on 2021-10-21
 
 /*
 Public contract (Version 2.0) for secure swap between ZEEX (token 0xb9c21a1A716Ee781B0Ab282F3AEdDB3382d7aAdc) and:
@@ -108,18 +108,15 @@ contract SaleAirDrop is Ownable{
     event ClaimAirDropEvent (address indexed wallet, uint256 amout, address partnerAddr, uint256 amountPartner);
 
     /**
-    * Network: BSC Testnet
+    * Network: BSC MainNet
     * Aggregator: BNB/USD
-    * Address: 0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526
+    * Address: 0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE
     */
     constructor() {
-         priceFeed = AggregatorV3Interface(0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526);
-        //_ZEEX      = IBEP20(0xb9c21a1A716Ee781B0Ab282F3AEdDB3382d7aAdc); 
-        _ZEEX      = IBEP20(0xa8f8C76CE1528a20e6E837B9d3f53FDFEe0dCD32); //faucet
-        //_ownerZEEX = 0xa7Ada24C9E91e50c2d9C98B15635f4e8CDeC45C2;
-        _ownerZEEX = 0x8A3DA0982DF04988ad04536D92FeFe88701619Bc; // faucet test1
-        //_USDT      = IBEP20(0x55d398326f99059fF775485246999027B3197955);
-        _USDT      = IBEP20(0xEdA7631884Ee51b4cAa85c4EEed7b0926954d180); //faucet
+         priceFeed = AggregatorV3Interface(0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE);
+        _ZEEX      = IBEP20(0xb9c21a1A716Ee781B0Ab282F3AEdDB3382d7aAdc); 
+        _ownerZEEX = 0xa7Ada24C9E91e50c2d9C98B15635f4e8CDeC45C2;
+        _USDT      = IBEP20(0x55d398326f99059fF775485246999027B3197955);
     }
 
     function _newPartner(address wallet, uint8 rebate, uint8 rebateBuyer, uint8 rebateAnoter, uint8 rebateAirDrop , bool customRebate) internal returns (bool) {
